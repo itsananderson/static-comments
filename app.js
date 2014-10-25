@@ -4,6 +4,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var uuid = require('uuid');
 var util = require('util');
+var crypto = require('crypto');
 var moment = require('moment');
 
 var app = express();
@@ -50,10 +51,14 @@ app.get('/posts/:id/comments/:token?', function(req, res) {
     client.queryEntities(commentsTable, query, token, function(err, result, response) {
         var continuationToken = result.continuationToken;
         var comments = result.entries.map(function(entry) {
+            var md5 = crypto.createHash('md5');
+            md5.update(entry.AuthorEmail._.toLowerCase());
+            console.log(entry);
             return {
                 PostID: entry.PostId._,
                 AuthorName: entry.AuthorName._,
-                AuthorEmail: entry.AuthorEmail._,
+                AuthorUri: entry.AuthorUri ? entry.AuthorUri._ : undefined,
+                AuthorEmailMd5: md5.digest('hex'),
                 Comment: entry.Comment._,
                 TimestampUtc: entry.TimestampUtc._
             };
@@ -80,9 +85,10 @@ app.post('/posts/:id/comments', function(req, res) {
                 RowKey: entGen.String(new Date().getTime() + '-' + uuid.v4()),
                 PostId: entGen.String(id),
                 AuthorName: entGen.String(req.body.AuthorName),
+                AuthorUri: entGen.String(req.body.AuthorUri),
                 AuthorEmail: entGen.String(req.body.AuthorEmail),
                 Comment: entGen.String(req.body.Comment),
-                TimestampUtc: entGen.Int64(moment.utc().unix())
+                TimestampUtc: entGen.String(moment.utc().format())
             };
             client.insertEntity(commentsTable, entity, function(error, result, response) {
                 console.log(arguments);
